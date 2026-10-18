@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skills 自进化框架 · 本地工作台</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">SF</span>
+    <div>
+      <h1>Skills 自进化框架</h1>
+      <p class="sub">本地工作台 · 执行 → 反馈 → 候选 → 对照评测 → 启用 / 回退</p>
+    </div>
+  </div>
+  <div class="status">
+    <span id="health" class="pill pill-muted">检查中…</span>
+    <span id="model-badge" class="pill pill-muted">模型未配置</span>
+    <button id="refresh" class="btn btn-ghost" type="button">刷新</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="workbench">任务工作台</button>
+  <button class="tab" data-tab="skills">技能库</button>
+  <button class="tab" data-tab="learning">学习建议与候选</button>
+  <button class="tab" data-tab="eval">评测中心</button>
+  <button class="tab" data-tab="memory">个人记忆</button>
+  <button class="tab" data-tab="settings">设置与数据</button>
+  <button class="tab" data-tab="jobs">后台作业</button>
+</nav>
+
+<main>
+  <p id="alert" class="alert hidden"></p>
+
+  <!-- 任务工作台 -->
+  <section id="tab-workbench" class="panel">
+    <div class="grid-2">
+      <div class="card">
+        <h2>新建任务</h2>
+        <label>请求（必填）<textarea id="run-request" rows="4" placeholder="例如：把 references 里的调研笔记整理成一页结构化摘要"></textarea></label>
+        <label>工作区
+          <select id="run-workspace"></select>
+        </label>
+        <label>完成条件（每行一条）<textarea id="run-criteria" rows="2" placeholder="包含结论段&#10;每条结论有来源引用"></textarea></label>
+        <label>指定 skill（可多选，留空则由系统选择）
+          <select id="run-skills" multiple size="4"></select>
+        </label>
+        <label class="row"><input type="checkbox" id="run-learning" checked /> 允许本任务后台学习</label>
+        <button id="create-run" class="btn btn-primary" type="button">提交任务</button>
+        <p class="hint">提交后 1 秒内返回任务编号；模型耗时另计。运行前展示将使用的方法、权限与预算。</p>
+      </div>
+      <div class="card">
+        <h2>任务列表</h2>
+        <div class="filters">
+          <select id="run-filter-status">
+            <option value="">全部状态</option>
+            <option>queued</option><option>running</option><option>awaiting_input</option>
+            <option>completed</option><option>failed</option><option>budget_stopped</option>
+            <option>cancelled</option><option>interrupted</option>
+          </select>
+          <button id="reload-runs" class="btn btn-ghost" type="button">重新加载</button>
+        </div>
+        <ul id="run-list" class="list"></ul>
+      </div>
+    </div>
+    <div class="card" id="run-detail-card">
+      <h2>任务详情</h2>
+      <div id="run-detail" class="muted">选择左侧任务查看产物、验收状态、加载版本与证据。</div>
+    </div>
+  </section>
+
+  <!-- 技能库 -->
+  <section id="tab-skills" class="panel hidden">
+    <div class="grid-2">
+      <div class="card">
+        <h2>导入 / 创建</h2>
+        <label>导入目录（SKILL.md 所在目录）<input id="import-path" placeholder="/path/to/skill-dir" /></label>
+        <label>作用域
+          <select id="import-scope"><option value="personal">personal（跨工作区）</option><option value="workspace">workspace（当前工作区）</option></select>
+        </label>
+        <label>工作区（workspace 作用域时必填）<select id="import-workspace"></select></label>
+        <label>同名冲突处理
+          <select id="import-conflict"><option value="reject">拒绝</option><option value="new_version">生成新版本</option><option value="new_slug">使用新身份</option></select>
+        </label>
+        <button id="do-import" class="btn btn-primary" type="button">导入（复制为初始版本，原目录只读）</button>
+        <hr />
+        <h3>手动创建草稿</h3>
+        <label>名称<input id="draft-name" /></label>
+        <label>用途描述<input id="draft-desc" /></label>
+        <label>正文（Markdown）<textarea id="draft-body" rows="5"></textarea></label>
+        <button id="do-draft" class="btn" type="button">创建草稿</button>
+      </div>
+      <div class="card">
+        <h2>技能列表</h2>
+        <input id="skill-search" placeholder="搜索名称 / slug" />
+        <ul id="skill-list" class="list"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>技能详情与版本</h2>
+      <div id="skill-detail" class="muted">选择技能查看文件树、权限、版本记录与回退入口。</div>
+    </div>
+  </section>
+
+  <!-- 学习建议与候选 -->
+  <section id="tab-learning" class="panel hidden">
+    <div class="card">
+      <h2>学习开关</h2>
+      <p class="hint">默认允许生成建议，<strong>默认禁止自动启用</strong>；可暂停全部或某个 skill 的学习。</p>
+      <label class="row"><input type="checkbox" id="learning-enabled" checked /> 允许后台学习（关闭后仍可正常执行任务）</label>
+      <button id="save-learning" class="btn" type="button">保存</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>经验（Lesson）</h2>
+        <ul id="lesson-list" class="list"></ul>
+      </div>
+      <div class="card">
+        <h2>候选修改（Proposal）</h2>
+        <ul id="proposal-list" class="list"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>候选详情</h2>
+      <div id="proposal-detail" class="muted">选择候选查看来源、理由、逐文件差异、硬检查与评测结果。</div>
+    </div>
+  </section>
+
+  <!-- 评测中心 -->
+  <section id="tab-eval" class="panel hidden">
+    <div class="grid-2">
+      <div class="card">
+        <h2>冻结评测集</h2>
+        <label>目标技能<select id="suite-skill"></select></label>
+        <label>名称<input id="suite-name" placeholder="文档摘要 · 回归集 v1" /></label>
+        <label>任务类别<input id="suite-category" placeholder="文档编写" /></label>
+        <label>样例（JSON 数组，字段：name/prompt/role/completion_criteria/verifier/expected_answers）
+          <textarea id="suite-cases" rows="8" placeholder='[{"name":"样例1","prompt":"...","role":"regression","completion_criteria":[{"name":"含结论段","type":"contains","value":"结论","critical":true}]}]'></textarea>
+        </label>
+        <label>Rubric（JSON）<textarea id="suite-rubric" rows="3" placeholder='{"dimensions":[{"name":"结构","weight":60},{"name":"表达","weight":40}],"pass_threshold":70}'></textarea></label>
+        <label>关键检查（JSON 数组）<textarea id="suite-critical" rows="2" placeholder='[{"name":"含结论段","type":"contains","value":"结论"}]'></textarea></label>
+        <label class="row"><input type="checkbox" id="suite-freeze" checked /> 创建后立即冻结</label>
+        <button id="create-suite" class="btn btn-primary" type="button">创建评测集</button>
+      </div>
+      <div class="card">
+        <h2>评测作业</h2>
+        <ul id="eval-job-list" class="list"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>配对报告</h2>
+      <div id="eval-report" class="muted">选择评测作业查看逐案结果、关键回归、成本与结论边界。</div>
+    </div>
+  </section>
+
+
+  <!-- 个人记忆（P1 四层） -->
+  <section id="tab-memory" class="panel hidden">
+    <div class="card">
+      <h2>记忆开关与召回设置</h2>
+      <p class="hint">四层结构：working memory（当前 session）→ daily log（按日期 append-only）→ durable topic（四类稳定事实）→ MEMORY.md 索引。记忆是<strong>事实</strong>，技能是<strong>方法</strong>；评测 run 自动关闭记忆。</p>
+      <label class="row"><input type="checkbox" id="memory-enabled" checked /> 启用记忆召回（关闭后任务照常执行，只是不注入个人记忆）</label>
+      <div class="row">
+        <label>召回条数上限<input id="memory-recall-limit" type="number" min="1" max="10" value="3" /></label>
+        <label>日志正文保留期限（天，留空为长期）<input id="memory-retention-days" type="number" min="1" /></label>
+        <button id="save-memory-settings" class="btn" type="button">保存</button>
+      </div>
+      <div id="memory-status" class="muted">加载中…</div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>记住一条事实</h2>
+        <label>内容（原文会被完整保存）<textarea id="memory-content" rows="3" placeholder="例如：以后同类任务每条结论都要标注来源"></textarea></label>
+        <label>作用域
+          <select id="memory-scope">
+            <option value="task">task（仅当前 session）</option>
+            <option value="workspace">workspace（当前工作区）</option>
+            <option value="personal">personal（跨工作区）</option>
+          </select>
+        </label>
+        <label>工作区（workspace 作用域必填）<select id="memory-workspace"></select></label>
+        <label>主题类型
+          <select id="memory-topic-type">
+            <option value="">未分类（待分类状态）</option>
+            <option value="user_preferences">用户偏好</option>
+            <option value="project_conventions">项目约定</option>
+            <option value="key_decisions">关键决策</option>
+            <option value="dependency_facts">依赖事实</option>
+          </select>
+        </label>
+        <label>标题（留空取内容首行）<input id="memory-title" /></label>
+        <label class="row"><input type="checkbox" id="memory-log-only" /> 只写日志，不形成长期主题</label>
+        <button id="save-memory" class="btn btn-primary" type="button">保存记忆</button>
+      </div>
+      <div class="card">
+        <h2>按需召回（可解释）</h2>
+        <label>请求文本（中英文均可）<input id="memory-query" placeholder="例如：整理调研摘要，结论要附来源" /></label>
+        <button id="do-recall" class="btn" type="button">召回</button>
+        <ul id="memory-recall-list" class="list small"></ul>
+        <h3>待裁决冲突</h3>
+        <ul id="memory-conflict-list" class="list small"></ul>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>长期主题（durable topics）</h2>
+        <ul id="memory-topic-list" class="list"></ul>
+      </div>
+      <div class="card">
+        <h2>日志（daily log）</h2>
+        <ul id="memory-log-list" class="list small"></ul>
+        <h3>working memory（session）</h3>
+        <ul id="memory-session-list" class="list small"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>MEMORY.md 索引</h2>
+      <div class="row">
+        <button id="do-index-rebuild" class="btn btn-ghost" type="button">从主题表重建索引</button>
+        <button id="do-dream" class="btn" type="button">手动触发 dream 整合</button>
+      </div>
+      <pre id="memory-index-text" class="muted">加载中…</pre>
+      <h3>整合历史</h3>
+      <ul id="memory-dream-list" class="list small"></ul>
+    </div>
+  </section>
+
+  <!-- 设置与数据 -->
+  <section id="tab-settings" class="panel hidden">
+    <div class="grid-2">
+      <div class="card">
+        <h2>模型连接</h2>
+        <label>Provider<input id="model-provider" value="openai_compatible" /></label>
+        <label>Base URL<input id="model-base-url" placeholder="https://api.example.com/v1" /></label>
+        <label>模型名<input id="model-name" /></label>
+        <label>API Key（仅写入本机凭据存储，运行记录只保留引用）<input id="model-api-key" type="password" placeholder="留空表示不修改" /></label>
+        <label>温度<input id="model-temp" type="number" step="0.1" value="0.2" /></label>
+        <div class="row">
+          <button id="save-model" class="btn btn-primary" type="button">保存</button>
+          <button id="check-model" class="btn" type="button">检查连接</button>
+        </div>
+        <p class="hint">检查连接会发送最小测试请求到上述 endpoint。</p>
+      </div>
+      <div class="card">
+        <h2>工作区</h2>
+        <label>名称<input id="ws-name" /></label>
+        <label>可读目录<input id="ws-root" placeholder="/Users/you/docs" /></label>
+        <label>产物目录（留空使用默认）<input id="ws-artifacts" /></label>
+        <label>允许工具（逗号分隔）<input id="ws-tools" value="list_dir,read_text,search_text,write_artifact" /></label>
+        <label class="row"><input type="checkbox" id="ws-scripts" checked /> 允许受隔离命令执行（需容器）</label>
+        <button id="add-workspace" class="btn" type="button">添加工作区</button>
+        <ul id="workspace-list" class="list"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>数据管理</h2>
+      <div id="usage" class="muted">加载中…</div>
+      <div class="row">
+        <button id="do-backup" class="btn" type="button">备份</button>
+        <button id="do-export" class="btn" type="button">导出</button>
+        <button id="do-restore-preview" class="btn" type="button">恢复预览</button>
+      </div>
+      <h3>核心指标</h3>
+      <div id="metrics" class="muted">加载中…</div>
+      <h3>审计</h3>
+      <ul id="audit-list" class="list small"></ul>
+    </div>
+  </section>
+
+  <!-- 后台作业 -->
+  <section id="tab-jobs" class="panel hidden">
+    <div class="card">
+      <h2>作业列表</h2>
+      <p class="hint">任务执行优先于后台学习；最多 2 个执行 worker、1 个学习 worker。</p>
+      <ul id="job-list" class="list"></ul>
+    </div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

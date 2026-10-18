@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillforge"
+version = "2.0.0"
+description = "Skills 自进化框架：本地任务执行、反馈提炼、候选修改、配对评测、启用与回退，以及四层个人记忆"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+skillforge = "skillforge.cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "skillforge",
+    "skillforge.core",
+    "skillforge.platform",
+    "skillforge.skills",
+    "skillforge.runtime",
+    "skillforge.learning",
+    "skillforge.evaluation",
+    "skillforge.data",
+    "skillforge.memory",
+    "skillforge.api",
+    "skillforge.cli",
+]
+
+[tool.setuptools.package-data]
+"skillforge.api" = ["web/*"]
